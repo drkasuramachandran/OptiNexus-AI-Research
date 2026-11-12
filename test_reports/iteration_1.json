@@ -1,0 +1,45 @@
+{
+  "summary": "First full pass (backend + frontend) over all 8 requested flows. Backend pytest: 20/20 pass, real LLM and external APIs used. These all work in the UI: register/login, per-user and per-project isolation, 4-source literature search (all 4 sources OK, 62 raw -> 52 merged), save to library, add to project via ProjectPicker, Paper Analyzer upload and profiles, non-PDF rejection, AI Assistant (Literature Review, Gap Discovery and auto -> Paper Comparison) with live streaming, conversation persistence, project Chat 'Save as report' then Reports tab, Notes CRUD with project, Settings (model, source toggle, key status), theme toggle, and data persisting after a backend restart. Two real bugs found: (1) project-scope Q&A gives a false 'No supporting evidence found' when duplicate uploads exist, because retrieval is fragile; (2) papers stay 'processing' forever if the backend restarts during analysis.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/qa (agents.retrieve / documents.bm25)", "issue": "Retrieval is fragile. bm25 returns only the top k=8 chunks, and title/front-matter/abstract chunks rank above Results chunks because they repeat the title words. In a clean project with 2 PDFs, the correct MZI Results chunk ('temperature sensitivity of 85 pm/C') was only S8, the last slot. In a project where the same PDFs were uploaded twice, identical duplicate chunks filled all 8 slots and the question 'What temperature sensitivity did the Mach-Zehnder sensor achieve?' returned 'No supporting evidence found' (reproduced through the UI and the API for user test_ui_1722e2@example.com, project a7c69909-...).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/papers/upload", "issue": "analyze_paper runs as an in-process FastAPI BackgroundTask. If the backend or container restarts mid-analysis, the paper stays status='processing' forever. Nothing resets it on startup, and the UI shows 'Analyzing…' with no retry button (reanalyze is only offered for profile_failed). Two such papers are left for user test_ui_1722e2 (ids 12623561-..., 797a8b27-...)."},
+      {"endpoint": "POST /api/papers/upload", "issue": "Uploads are not deduplicated (save_paper dedupes by DOI/title, upload does not). Uploading the same PDF twice creates duplicate papers and chunks, which triggers the retrieval issue above."},
+      {"endpoint": "agents.scoped_papers", "issue": "The filter status != 'failed' never matches anything, because the real statuses are processing/profile_failed/ready. Papers still processing or that failed profiling are counted in 'N papers in context' (the UI showed 6 papers in context, including 2 stuck duplicates)."},
+      {"endpoint": "POST /api/auth/login", "issue": "Lockout count is never reset when the 15-min window expires. After expiry, a single wrong password locks the account again (count is still >=5). The count should reset when 'until' has passed."},
+      {"endpoint": "POST /api/papers/{id}/reanalyze", "issue": "update_one filter is {'id': paper_id} without user_id. Ownership is checked earlier, but scoping the write is safer."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ChatWorkspace report()", "issue": "Report title uses the local conv.title, which stays 'New conversation' because the server-side title update is never pulled back into conv state. Every report gets a title like 'Literature Review (auto) — New conversation'.", "selector": "[data-testid='save-report-button']", "priority": "LOW"},
+      {"component": "Analyzer Profile", "issue": "No retry or cancel option for papers stuck in 'processing'.", "selector": "[data-testid^='uploaded-paper-']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_optinexus_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Make Q&A retrieval robust: dedupe identical chunk texts before ranking, raise k (e.g. 12-16) or guarantee at least 2-3 chunks per document, and/or down-weight front-matter/abstract chunks",
+    "Dedupe uploads (e.g. by a content hash per user) or warn the user about duplicates",
+    "On startup, mark papers with status 'processing' as 'profile_failed' (with an 'interrupted' error) so the Retry button appears; also allow retry for long-running 'processing' papers",
+    "Fix scoped_papers status filter (exclude profile_failed/processing as intended, or count only ready papers)",
+    "Reset login_attempts count when the lockout window has expired",
+    "Refresh the conversation title after the first message so report titles are meaningful"
+  ],
+  "critical_code_review_comments": [
+    "server.py is 640 lines, close to the 700-line limit; consider splitting routes into modules",
+    "BackgroundTasks for LLM profiling are not durable (see stuck-processing issue)",
+    "CORS allow_origins defaults to '*' with allow_credentials=True. Auth uses Bearer tokens, not cookies, so the risk is low, but set explicit origins"
+  ],
+  "updated_files": ["/app/backend/tests/test_optinexus_api.py", "/app/backend/tests/__init__.py"],
+  "success_rate": {"backend": "100% (20/20 pytest), plus 1 retrieval robustness bug found in the UI", "frontend": "~95% (all flows work; Q&A false negative with duplicate uploads)"},
+  "test_credentials": "t1@example.com / test123 (exists). Created: test_a_55ada02a@example.com, test_b_* , test_ui_1722e2@example.com, test_lock_9f2a@example.com (locked), all password test123",
+  "seed_data_creation": "TEST_ users with projects TEST_Project A2/B and TEST_UI Project A/B, saved papers, uploaded sample PDFs (test_ui user has duplicates plus 2 stuck 'processing' papers kept for reproduction), conversations, 1 report each",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run the backend suite serially: pytest /app/backend/tests/test_optinexus_api.py -n 0 (the classes share module state). Retest: upload the same PDF twice into one project, then ask the MZI temperature sensitivity question in project scope; restart the backend mid-analysis and check that the paper becomes retryable. The container restarted once during testing (transient 502); Mongo data survived.",
+  "rca of the issue": "Q&A false negative: bm25() in documents.py ranks over all chunks with k=8. Short front-matter/abstract chunks repeat the title terms (Mach-Zehnder, temperature, sensor) and get high BM25 scores because they are short (length normalisation). Duplicate uploads double these chunks, pushing the Results chunk out of the top 8, so the LLM sees no numeric evidence and returns evidence_found=false. Reproduce: as test_ui_1722e2@example.com, POST /api/qa {question:'What temperature sensitivity did the Mach-Zehnder sensor achieve?', project_id:'a7c69909-98ea-4505-880a-193b3eb04cfa'}. Fix: dedupe chunk texts, cap chunks per paper, increase k."
+}

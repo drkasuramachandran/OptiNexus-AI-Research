@@ -1,0 +1,20 @@
+{
+  "summary": "Ran a quick, focused test of the Writing Studio 'Save Drafts' feature. Backend: create, list, update and delete work; each project and each user only sees its own drafts; an empty title is rejected (422). UI as t1 on project FOS: generated a draft with the LLM, gave it a title and saved it, and it showed in saved-drafts-list. After an edit the button read 'Save changes' and saving updated the same draft with no duplicate. After a page reload the draft was still listed and reopened with the edited text. MD and DOCX export both downloaded. Delete (with the confirm dialog) removed the draft. Everything tested passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Writing Studio", "issues": ["Low priority: openDraft() restores only the text and title, not the saved doc_type, style or paper_ids. Export filenames come from the doc type currently selected, not the draft title (e.g. Literature_review_draft.md for 'TEST_UI draft')."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_drafts_api.py", "/app/test_reports/pytest/drafts.xml"],
+  "action_items": ["Optional: when a saved draft is reopened, restore its doc_type, style and paper_ids, and use the draft title for export filenames"],
+  "critical_code_review_comments": ["DELETE /api/drafts/{id} returns {ok:true} even when nothing matched (another user's draft or an unknown id). Nothing is deleted, but a 404 would be more consistent with PUT.", "Deleting a project also deletes its drafts (server.py delete_project) - good."],
+  "updated_files": ["/app/backend/tests/test_drafts_api.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Test users test_dr*@example.com and their projects are created and deleted by the pytest file. The UI test draft 'TEST_UI draft' in t1's FOS project was deleted at the end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run the drafts tests with: pytest /app/backend/tests/test_drafts_api.py -n 0. t1 has only one project (FOS), so the 'other project shows no drafts' check was done through the API, not the UI."
+}

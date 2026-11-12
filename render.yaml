@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: optinexus-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        value: optinexus
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://optinexus-web.onrender.com
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: NCBI_API_KEY
+        sync: false
+
+  - type: web
+    name: optinexus-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: optinexus-api
+          envVarKey: RENDER_EXTERNAL_URL

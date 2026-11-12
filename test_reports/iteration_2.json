@@ -1,0 +1,44 @@
+{
+  "summary": "Phase 2 test pass (backend and frontend). New pytest file test_phase2_api.py: 16/16 pass with real LLM calls, Crossref and docx. Phase 1 regression suite: 20/20 pass. Checked in the UI as a fresh TEST_ user: login, 4-source search and save, the Library 'Cite & verify' dialog (6 styles; MISMATCH result with 4 check rows for a DOI paper; NO DOI for an uploaded PDF), and the Compare tab (Compare disabled with fewer than 2 selected, 7th checkbox disabled, table with 7 fields, CSV download). Also checked structured gaps: the empty-scope error toast, 5 cards with tag, strength, papers-analysed notice and novelty reminder, and the cards are still there after a reload. In Writing Studio (IEEE abstract): [n] citations, References list contains only the cited selected papers, the editor is editable, and the Markdown and DOCX exports both include the edits. Isolation works (404 for another user's project or paper; papers from another project or user are excluded). No critical bugs. A few medium/minor quality issues are listed below.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/writing/draft", "issue": "Bare source labels leak into the draft. The LLM writes 'R2 and R3 were available as full text. R1 was available as metadata...' without brackets, so CITE_RE does not convert them. The labels mean nothing to the reader and conflict with the [1]/[2] reference numbering (R1 there was an uncited paper). Seen in the UI draft for an IEEE abstract. Fix: replace bare \\bR\\d+\\b mentions (or forbid them in the prompt) and remove the 'Source availability' meta paragraph."},
+      {"endpoint": "POST /api/conversations/{cid}/messages (after structured gaps)", "issue": "Only the summary string of the structured gap message goes into the chat history (m['content']). For the follow-up 'Which of these gaps is most feasible?' the assistant replied 'The five candidate gaps from my earlier turn aren't itemised in the context I can see'. Fix: serialise gaps.items (area, tag, strength) into content or into the history."},
+      {"endpoint": "citations.fmt_ieee", "issue": "For two authors the output is 'A. Rivera, and K. Osei'. IEEE style is 'A. Rivera and K. Osei' (serial comma only for 3+ authors). This shows up in the Writing Studio IEEE reference list."},
+      {"endpoint": "citations.fmt_vancouver", "issue": "With more than 6 authors there is a double period: 'Askins CG, et al.. Fiber grating sensors.'"},
+      {"endpoint": "citations.verify_doi", "issue": "If both stored and Crossref values are empty (e.g. a book with editors only), Journal/First author are marked as mismatches, so the result is 'MISMATCH' for a correctly stored record (seen for 10.1002/9781118014103). These should be treated as n/a. Also, BibTeX/RIS always use @article / TY JOUR, even for books."},
+      {"endpoint": "POST /api/conversations/{cid}/gaps", "issue": "The LLM sometimes puts meta text in research_area, e.g. 'Based on 7 papers (P1-P5 abstract/metadata only; P6-P7 full text, none with DOIs): simultaneous strain...'. The card heading then shows internal P# labels. The values in limitations_found / proposed_direction also contain P6/P7 labels that the user cannot map to papers. Tighten the prompt or map P# to titles."},
+      {"endpoint": "POST /api/compare", "issue": "The LLM often writes 'Not reported (only metadata...)' instead of exactly 'Not reported', so the italic/muted styling in the UI (which uses strict equality) is not applied to those cells. Values are also prefixed with '[Reported in source]', which clutters the table and the CSV."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ChatWorkspace runGaps", "issue": "The local conv.title is not updated to 'Structured gap analysis' (the list reloads, but the conv state keeps 'New conversation'). 'Save as report' from that conversation then gets the stale title. Same root cause as the iteration_1 report-title issue.", "selector": "[data-testid='run-structured-gaps-button']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_phase2_api.py", "/app/backend/tests/test_optinexus_api.py", "/app/test_reports/pytest/phase2_results.xml"],
+  "action_items": [
+    "Writing draft: strip or convert bare R# labels and avoid meta 'Source availability' paragraphs",
+    "Include the structured gap items in the chat history so follow-up questions can refer to them",
+    "fmt_ieee: no comma before 'and' for exactly 2 authors; fmt_vancouver: fix 'et al..'",
+    "verify_doi: treat fields missing on both sides as n/a instead of a mismatch",
+    "Gap/compare prompts: keep P# labels and meta notes out of field values; normalise 'Not reported*' to 'Not reported'",
+    "ChatWorkspace: update conv.title locally after a structured gap analysis"
+  ],
+  "critical_code_review_comments": [
+    "phase2.material() runs a separate retrieve() per paper, and each retrieve loads all of that paper's chunks. That is fine at this scale, but gaps over 25 papers means 25 sequential DB+BM25 passes; consider asyncio.gather.",
+    "scoped_papers still returns processing/profile_failed papers (from iteration_1); they are counted in 'Papers analysed'.",
+    "POST /api/writing/docx has no size limit on markdown; consider a max_length."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase2_api.py"],
+  "success_rate": {"backend": "100% (16/16 phase 2 + 20/20 regression)", "frontend": "100% of flows work; quality issues only"},
+  "test_credentials": "t1@example.com / test123 (login works; data untouched). Created: test_p2ui_488902@example.com / test123 (UI), test_p2a_* / test_p2b_* users from pytest (password test123)",
+  "seed_data_creation": "TEST_ users with projects TEST_UI Sensors (2 uploads + 5 TEST_Meta papers), TEST_UI Empty, TEST_P2 A/B/Empty/Other, a saved Kersey 1997 DOI paper, gap conversations. No seed or production data was changed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: pytest /app/backend/tests/test_phase2_api.py -n 0 (about 85s, real LLM). It sets up its own users, projects and PDFs. DOI 10.1109/50.618377 verifies cleanly against Crossref. To retest the bare-label leak, generate an IEEE abstract in Writing Studio with 1 metadata-only paper and 2 uploads, then look for 'R1'/'R2' in the text.",
+  "rca of the issue": "Bare R# leak: apply_citations only matches the bracketed form \\[(R\\d+...)\\]. The LLM also mentions sources in prose without brackets, so those labels pass through unchanged. Gap follow-up: send_message builds history from m['content'] only, and the structured gap message stores its details in m['gaps'], which is never serialised into the history."
+}

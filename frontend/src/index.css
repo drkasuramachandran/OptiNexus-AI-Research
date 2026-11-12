@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: "IBM Plex Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-display { font-family: "Sora", sans-serif; letter-spacing: -0.02em; }
+code, .font-mono { font-family: "JetBrains Mono", monospace; }
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 218 60% 12%;
+        --card: 210 40% 98%;
+        --card-foreground: 218 60% 12%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 218 60% 12%;
+        --primary: 192 91% 34%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 214 32% 94%;
+        --secondary-foreground: 218 60% 12%;
+        --muted: 214 32% 95%;
+        --muted-foreground: 216 18% 42%;
+        --accent: 192 70% 93%;
+        --accent-foreground: 218 60% 12%;
+        --destructive: 0 72% 50%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 214 30% 87%;
+        --input: 214 30% 85%;
+        --ring: 192 91% 40%;
+        --chart-1: 192 91% 38%;
+        --chart-2: 218 70% 40%;
+        --radius: 0.6rem;
+    }
+    .dark {
+        --background: 218 62% 7%;
+        --foreground: 210 40% 97%;
+        --card: 218 52% 10.5%;
+        --card-foreground: 210 40% 97%;
+        --popover: 218 52% 11%;
+        --popover-foreground: 210 40% 97%;
+        --primary: 188 86% 53%;
+        --primary-foreground: 218 62% 8%;
+        --secondary: 218 40% 15%;
+        --secondary-foreground: 210 40% 97%;
+        --muted: 218 40% 15%;
+        --muted-foreground: 215 20% 66%;
+        --accent: 218 40% 17%;
+        --accent-foreground: 210 40% 97%;
+        --destructive: 0 63% 48%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 218 36% 19%;
+        --input: 218 36% 22%;
+        --ring: 188 86% 53%;
+        --chart-1: 188 86% 53%;
+        --chart-2: 210 90% 70%;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    body { @apply bg-background text-foreground; }
+    ::selection { background: hsl(var(--primary) / 0.3); }
+}
+
+.grid-bg {
+    background-image: radial-gradient(hsl(var(--primary) / 0.12) 1px, transparent 1px);
+    background-size: 22px 22px;
+}
+
+.fade-up { animation: fadeUp 0.45s ease-out both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.prose-sci { line-height: 1.65; font-size: 0.925rem; }
+.prose-sci p { margin: 0.5rem 0; }
+.prose-sci h1, .prose-sci h2, .prose-sci h3 { font-weight: 600; margin: 0.9rem 0 0.4rem; font-size: 1rem; }
+.prose-sci ul { list-style: disc; padding-left: 1.25rem; margin: 0.4rem 0; }
+.prose-sci ol { list-style: decimal; padding-left: 1.25rem; margin: 0.4rem 0; }
+.prose-sci table { border-collapse: collapse; margin: 0.6rem 0; font-size: 0.82rem; display: block; overflow-x: auto; }
+.prose-sci th, .prose-sci td { border: 1px solid hsl(var(--border)); padding: 0.35rem 0.55rem; text-align: left; vertical-align: top; }
+.prose-sci th { background: hsl(var(--muted)); }
+.prose-sci code { background: hsl(var(--muted)); padding: 0 0.25rem; border-radius: 4px; font-size: 0.8rem; }
+.prose-sci a { color: hsl(var(--primary)); text-decoration: underline; }
+
+[data-debug-wrapper="true"] { display: contents !important; }
