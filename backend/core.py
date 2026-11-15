@@ -25,7 +25,7 @@ client = AsyncIOMotorClient(_mongo_url, serverSelectionTimeoutMS=10000)
 db = client[os.environ.get("DB_NAME", "optinexus")]
 
 JWT_ALGORITHM = "HS256"
-DEFAULT_MODEL = "gemini:gemini-2.5-flash"
+DEFAULT_MODEL = "gemini:gemini-3.8-flash"
 SOURCES = ["openalex", "crossref", "arxiv", "pubmed"]
 
 
